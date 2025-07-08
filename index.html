@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lista de Tarefas Vue.js</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div id="app" class="container mx-auto px-4 py-8 max-w-2xl">
+        <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+            <div class="bg-indigo-600 text-white p-6">
+                <h1 class="text-2xl font-bold flex items-center">
+                    <i class="fas fa-clipboard-list mr-2"></i>
+                    Lista de Tarefas
+                </h1>
+                <p class="text-indigo-100 mt-1">Organize seu dia com Vue.js</p>
+            </div>
+
+            <div class="p-6 border-b">
+                <form @submit.prevent="addTask" class="flex gap-2">
+                    <input 
+                        v-model="newTask" 
+                        type="text" 
+                        placeholder="Adicione uma nova tarefa..."
+                        class="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        required
+                    >
+                    <button 
+                        type="submit" 
+                        class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition flex items-center"
+                    >
+                        <i class="fas fa-plus mr-1"></i> Adicionar
+                    </button>
+                </form>
+            </div>
+
+            <div class="px-6 py-2 bg-gray-50 border-b flex flex-wrap gap-2">
+                <button 
+                    @click="filter = 'all'"
+                    :class="{'bg-indigo-100 text-indigo-800': filter === 'all'}"
+                    class="px-3 py-1 rounded-lg text-sm hover:bg-indigo-50 transition"
+                >
+                    Todas <span class="bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded-full text-xs ml-1">{{ tasks.length }}</span>
+                </button>
+                <button 
+                    @click="filter = 'active'"
+                    :class="{'bg-indigo-100 text-indigo-800': filter === 'active'}"
+                    class="px-3 py-1 rounded-lg text-sm hover:bg-indigo-50 transition"
+                >
+                    Pendentes <span class="bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded-full text-xs ml-1">{{ activeTasksCount }}</span>
+                </button>
+                <button 
+                    @click="filter = 'completed'"
+                    :class="{'bg-indigo-100 text-indigo-800': filter === 'completed'}"
+                    class="px-3 py-1 rounded-lg text-sm hover:bg-indigo-50 transition"
+                >
+                    Concluídas <span class="bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded-full text-xs ml-1">{{ completedTasksCount }}</span>
+                </button>
+            </div>
+
+            <div v-if="filteredTasks.length > 0">
+                <ul class="divide-y">
+                    <li 
+                        v-for="(task, index) in filteredTasks" 
+                        :key="task.id"
+                        class="px-6 py-4 group"
+                    >
+                        <div class="flex items-center">
+                            <button 
+                                @click="toggleTaskCompletion(task.id)"
+                                class="w-5 h-5 rounded-full border-2 flex-shrink-0"
+                                :class="{
+                                    'border-indigo-500': !task.completed,
+                                    'bg-indigo-500 border-indigo-500': task.completed
+                                }"
+                            >
+                                <i 
+                                    v-if="task.completed" 
+                                    class="fas fa-check text-xs text-white self-center mx-auto"
+                                ></i>
+                            </button>
+                            
+                            <div class="ml-3 flex-1">
+                                <input 
+                                    v-if="task.id === editingId"
+                                    v-model="task.text"
+                                    @keyup.enter="saveEdit(task)"
+                                    @blur="saveEdit(task)"
+                                    type="text" 
+                                    class="w-full px-2 py-1 border-b focus:outline-none focus:border-indigo-500"
+                                    v-focus
+                                >
+                                <span 
+                                    v-else
+                                    @dblclick="startEditing(task)"
+                                    :class="{
+                                        'line-through text-gray-400': task.completed,
+                                        'text-gray-700': !task.completed
+                                    }"
+                                    class="cursor-pointer"
+                                >
+                                    {{ task.text }}
+                                </span>
+                            </div>
+                            
+                            <div class="ml-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button 
+                                    @click="startEditing(task)"
+                                    v-if="task.id !== editingId"
+                                    class="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-indigo-600 transition"
+                                    title="Editar"
+                                >
+                                    <i class="fas fa-pencil-alt fa-sm"></i>
+                                </button>
+                                
+                                <button 
+                                    @click="deleteTask(task.id)"
+                                    class="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-red-600 transition"
+                                    title="Excluir"
+                                >
+                                    <i class="fas fa-trash-alt fa-sm"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="text-xs text-gray-400 mt-1 ml-8">
+                            Criada em: {{ formatDate(task.createdAt) }}
+                            <span v-if="task.completed" class="text-green-500 ml-2">
+                                <i class="fas fa-check-circle"></i> Concluída em: {{ formatDate(task.completedAt) }}
+                            </span>
+                        </div>
+                    </li>
+                </ul>
+                
+                <div class="px-6 py-3 bg-gray-50 text-sm text-gray-500 flex justify-between">
+                    <div v-if="activeTasksCount === 0" class="text-green-600">
+                        <i class="fas fa-check-circle mr-1"></i> Todas as tarefas concluídas!
+                    </div>
+                    <div v-else>
+                        {{ activeTasksCount }} tarefa(s) pendente(s)
+                    </div>
+                    <button 
+                        @click="clearCompleted"
+                        v-if="completedTasksCount > 0"
+                        class="text-gray-400 hover:text-indigo-600 transition"
+                    >
+                        Limpar concluídas
+                    </button>
+                </div>
+            </div>
+            
+            <div v-else class="p-6 text-center text-gray-500">
+                <div class="w-16 h-16 mx-auto mb-4 text-gray-300">
+                    <i class="fas fa-clipboard text-4xl"></i>
+                </div>
+                <p v-if="filter === 'all'">Sua lista de tarefas está vazia</p>
+                <p v-else-if="filter === 'active'">Nenhuma tarefa pendente</p>
+                <p v-else>Nenhuma tarefa concluída</p>
+                <button 
+                    @click="addDemoTasks"
+                    class="mt-4 text-indigo-600 hover:text-indigo-800 transition text-sm"
+                >
+                    <i class="fas fa-lightbulb mr-1"></i> Adicionar tarefas de exemplo
+                </button>
+            </div>
+        </div>
+        
+        <div class="mt-6 text-center text-gray-500 text-sm">
+            <p>Feito com Vue.js <i class="fas fa-heart text-red-500 mx-1"></i></p>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, onMounted } = Vue;
+        
+        createApp({
+            setup() {
+                const tasks = ref([]);
+                const newTask = ref('');
+                const filter = ref('all');
+                const editingId = ref(null);
+                
+                onMounted(() => {
+                    const savedTasks = localStorage.getItem('vue-todo-tasks');
+                    if (savedTasks) {
+                        tasks.value = JSON.parse(savedTasks);
+                    }
+                });
+                
+                const activeTasksCount = computed(() => tasks.value.filter(t => !t.completed).length);
+                const completedTasksCount = computed(() => tasks.value.filter(t => t.completed).length);
+                
+                const filteredTasks = computed(() => {
+                    switch(filter.value) {
+                        case 'active':
+                            return tasks.value.filter(t => !t.completed);
+                        case 'completed':
+                            return tasks.value.filter(t => t.completed);
+                        default:
+                            return [...tasks.value].sort((a, b) => {
+                                if (a.completed && b.completed) {
+                                    return new Date(b.completedAt) - new Date(a.completedAt);
+                                }
+                                return new Date(b.createdAt) - new Date(a.createdAt);
+                            });
+                    }
+                });
+                
+                const addTask = () => {
+                    if (newTask.value.trim()) {
+                        tasks.value.push({
+                            id: Date.now(),
+                            text: newTask.value.trim(),
+                            completed: false,
+                            createdAt: new Date().toISOString(),
+                            completedAt: null
+                        });
+                        newTask.value = '';
+                        saveToLocalStorage();
+                    }
+                };
+                
+                const toggleTaskCompletion = (id) => {
+                    const task = tasks.value.find(t => t.id === id);
+                    if (task) {
+                        task.completed = !task.completed;
+                        task.completedAt = task.completed ? new Date().toISOString() : null;
+                        saveToLocalStorage();
+                    }
+                };
+                
+                const deleteTask = (id) => {
+                    tasks.value = tasks.value.filter(t => t.id !== id);
+                    saveToLocalStorage();
+                };
+                
+                const startEditing = (task) => {
+                    if (!task.completed) {
+                        editingId.value = task.id;
+                    }
+                };
+                
+                const saveEdit = (task) => {
+                    if (task.text.trim()) {
+                        task.text = task.text.trim();
+                        editingId.value = null;
+                        saveToLocalStorage();
+                    }
+                };
+                
+                const clearCompleted = () => {
+                    tasks.value = tasks.value.filter(t => !t.completed);
+                    saveToLocalStorage();
+                };
+                
+                const saveToLocalStorage = () => {
+                    localStorage.setItem('vue-todo-tasks', JSON.stringify(tasks.value));
+                };
+                
+                const formatDate = (dateString) => {
+                    if (!dateString) return '';
+                    const date = new Date(dateString);
+                    return date.toLocaleDateString('pt-BR') + ' ' + date.toLocaleTimeString('pt-BR');
+                };
+                
+                const addDemoTasks = () => {
+                    const demoTasks = [
+                        { id: 1, text: 'Aprender Vue.js', completed: false, createdAt: new Date().toISOString(), completedAt: null },
+                        { id: 2, text: 'Criar um projeto simples', completed: true, createdAt: new Date(Date.now() - 86400000).toISOString(), completedAt: new Date(Date.now() - 3600000).toISOString() },
+                        { id: 3, text: 'Implementar armazenamento local', completed: false, createdAt: new Date(Date.now() - 43200000).toISOString(), completedAt: null }
+                    ];
+                    tasks.value = demoTasks;
+                    saveToLocalStorage();
+                };
+                
+                const vFocus = {
+                    mounted: (el) => el.focus()
+                };
+                
+                return {
+                    tasks,
+                    newTask,
+                    filter,
+                    editingId,
+                    activeTasksCount,
+                    completedTasksCount,
+                    filteredTasks,
+                    addTask,
+                    toggleTaskCompletion,
+                    deleteTask,
+                    startEditing,
+                    saveEdit,
+                    clearCompleted,
+                    formatDate,
+                    addDemoTasks,
+                    vFocus
+                };
+            }
+        }).directive('focus', {
+            mounted: (el) => el.focus()
+        }).mount('#app');
+    </script>
+</body>
+</html>
